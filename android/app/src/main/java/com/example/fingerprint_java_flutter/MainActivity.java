@@ -175,20 +175,21 @@ public class MainActivity extends FlutterActivity  {
     }
 
     private FingerprintCaptureListener fingerprintCaptureListener = new FingerprintCaptureListener() {
-        @Override
-        public void captureOK(byte[] fpImage) {
-            // Convert fingerprint image to Base64 and send to Flutter
-            Bitmap bitmap = ToolUtils.renderCroppedGreyScaleBitmap(fpImage, fingerprintSensor.getImageWidth(), fingerprintSensor.getImageHeight());
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
-            byte[] byteArray = stream.toByteArray();
-            String base64Image = Base64.encodeToString(byteArray, Base64.NO_WRAP);
+@Override
+public void captureOK(byte[] fpImage) {
+    Bitmap bitmap = ToolUtils.renderCroppedGreyScaleBitmap(fpImage, fingerprintSensor.getImageWidth(), fingerprintSensor.getImageHeight());
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+    byte[] byteArray = stream.toByteArray();
+    String base64Image = Base64.encodeToString(byteArray, Base64.NO_WRAP);
 
-            // Send image base64 to Flutter
-            if (methodChannel != null) {
-                methodChannel.invokeMethod("onFingerprintImage", base64Image);
-            }
-        }
+    if (methodChannel != null) {
+        runOnUiThread(() -> {
+            methodChannel.invokeMethod("onFingerprintImage", base64Image);
+        });
+    }
+}
+
 
         @Override
         public void captureError(FingerprintException e) {
