@@ -1,43 +1,4 @@
-// package com.example.fingerprint_java_flutter;
 
-// import android.os.Bundle;
-// import android.widget.Toast;
-
-// import androidx.annotation.NonNull;
-
-// import java.util.Map;
-
-// import io.flutter.embedding.android.FlutterActivity;
-// import io.flutter.embedding.engine.FlutterEngine;
-// import io.flutter.plugin.common.MethodChannel;
-
-// public class MainActivity extends FlutterActivity {
-//   private static final String CHANNEL = "com.example.hello";
-
-//   @Override
-//   public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
-//     super.configureFlutterEngine(flutterEngine);
-
-//     new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
-//       .setMethodCallHandler((call, result) -> {
-//         if (call.method.equals("printHelloWithName")) {
-//           // Get arguments as a Map
-//           Map<String, Object> args = call.arguments();
-//           String name = (String) args.get("name");
-
-//           String message = "Hello, " + name + " from Native Java";
-//           Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
-//           System.out.println(message);
-
-//           result.success("Received: " + name);
-//         } else {
-//           result.notImplemented();
-//         }
-//       });
-//   }
-// }
-// package com.example.zkfinger10demo;
-// package com.example.zkfinger10demo;
 
 package com.example.fingerprint_java_flutter;
 
