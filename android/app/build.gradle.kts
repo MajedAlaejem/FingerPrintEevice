@@ -5,8 +5,8 @@ plugins {
 }
 
 android {
-    
-   lintOptions {
+
+    lintOptions {
         disable("UnspecifiedImmutableFlag")
     }
 
@@ -22,9 +22,11 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
+
     defaultConfig {
         applicationId = "com.example.fingerprint_java_flutter"
-        minSdk = 21 // ✅ Compatible with NDK
+        // Fixed minSdkVersion for Kotlin DSL
+        minSdkVersion(flutter.minSdkVersion.toInt()) 
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -32,13 +34,13 @@ android {
     }
 
     buildTypes {
-            getByName("debug") {
-        isMinifyEnabled = false
-        isShrinkResources = false
-    }
+        getByName("debug") {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
         getByName("release") {
             isMinifyEnabled = false
-            isShrinkResources = false // ✅ Added to prevent error
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }

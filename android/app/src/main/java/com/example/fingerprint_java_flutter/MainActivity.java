@@ -65,7 +65,7 @@ public class MainActivity extends FlutterActivity {
     private int enroll_index = 0;
     private byte[][] regtemparray = new byte[ENROLL_COUNT][2048];
     private boolean bRegister = false;
-    private DBManager dbManager = new DBManager();
+    // private DBManager dbManager = new DBManager();
     private String dbFileName;
     private MethodChannel methodChannel;
 
@@ -168,11 +168,11 @@ public class MainActivity extends FlutterActivity {
             bRegister = false;
             return;
         }
-        if (dbManager.isUserExited(strUid)) {
-            setResult("The user[" + strUid + "] had registered!");
-            bRegister = false;
-            return;
-        }
+        // if (dbManager.isUserExited(strUid)) {
+        //     setResult("The user[" + strUid + "] had registered!");
+        //     bRegister = false;
+        //     return;
+        // }
         bRegister = true;
         enroll_index = 0;
         setResult("Please press your finger 3 times.");
@@ -309,7 +309,7 @@ public class MainActivity extends FlutterActivity {
             byte[] regTemp = new byte[2048];
             int res = ZKFingerService.merge(regtemparray[0], regtemparray[1], regtemparray[2], regTemp);
             if (res > 0 && ZKFingerService.save(regTemp, strUid) == 0) {
-                dbManager.insertUser(strUid, Base64.encodeToString(regTemp, 0, res, Base64.NO_WRAP));
+                // dbManager.insertUser(strUid, Base64.encodeToString(regTemp, 0, res, Base64.NO_WRAP));
                 setResult("enroll success");
             } else {
                 setResult("enroll failed");

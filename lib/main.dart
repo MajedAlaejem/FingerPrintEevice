@@ -1,5 +1,7 @@
 
+
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -108,15 +110,6 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
                     controller: _userIdController,
                     decoration: const InputDecoration(labelText: 'User ID', border: OutlineInputBorder()),
                   ),
-                  const SizedBox(height: 20),
-                  if (_scannedTemplate != null)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Scanned Template:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        SelectableText(_scannedTemplate!),
-                      ],
-                    ),
                 ],
               ),
             ),
