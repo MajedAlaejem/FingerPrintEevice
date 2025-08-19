@@ -1,5 +1,3 @@
-
-
 package com.example.fingerprint_java_flutter;
 
 import androidx.annotation.NonNull;
@@ -16,7 +14,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.fingerprint_java_flutter.ZKUSBManager.ZKUSBManager;
 import com.example.fingerprint_java_flutter.ZKUSBManager.ZKUSBManagerListener;
@@ -65,14 +62,15 @@ public class MainActivity extends FlutterActivity {
     private int enroll_index = 0;
     private byte[][] regtemparray = new byte[ENROLL_COUNT][2048];
     private boolean bRegister = false;
-    // private DBManager dbManager = new DBManager();
-    private String dbFileName;
+
     private MethodChannel methodChannel;
+
+    // للتحقق: نخزن القالب المخزن من قاعدة البيانات حتى نتحقق مع قراءة حية لاحقاً
+    private byte[] targetTemplateForVerification = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        dbFileName = getFilesDir().getAbsolutePath() + "/zkfinger10.db";
         checkStoragePermission();
         zkusbManager = new ZKUSBManager(this.getApplicationContext(), zkusbManagerListener);
         zkusbManager.registerUSBPermissionReceiver();
@@ -94,32 +92,45 @@ public class MainActivity extends FlutterActivity {
             switch (call.method) {
                 case "startFingerprint":
                     runOnUiThread(() -> onBnStart(null));
-                    result.success("Fingerprint capture started");
+                    result.success("Fingerprint: starting...");
                     break;
                 case "stopFingerprint":
                     runOnUiThread(() -> onBnStop(null));
-                    result.success("Fingerprint capture stopped");
+                    result.success("Fingerprint: stopped");
                     break;
-                case "registerFingerprint":
+                case "registerFingerprint": {
                     String userId = call.argument("userId");
                     runOnUiThread(() -> {
-                        if (userId != null && !userId.isEmpty()) {
-                            if (editText != null) {
-                                editText.setText(userId);
-                            }
-                        }
+                        strUid = userId;
                         onBnRegister(null);
                     });
-                    result.success("Fingerprint registration started");
+                    result.success("Register: started");
                     break;
+                }
                 case "scanTemplate":
                     bRegister = false;
+                    targetTemplateForVerification = null;
                     runOnUiThread(() -> {
                         if (!bStarted) onBnStart(null);
                         setResult("Place your finger to scan template...");
                     });
-                    result.success("Scanning started");
+                    result.success("Scan: started");
                     break;
+
+                // يبدأ التحقق: يستقبل القالب المخزن (Base64) ويجهز الاستماع لأول التقاط حي ثم يقارن
+                case "beginVerify": {
+                    String storedBase64 = call.argument("storedTemplate");
+                    if (storedBase64 == null || storedBase64.isEmpty()) {
+                        result.error("ARG_ERROR", "storedTemplate is empty", null);
+                        return;
+                    }
+                    targetTemplateForVerification = Base64.decode(storedBase64, Base64.NO_WRAP);
+                    bRegister = false; // تأكد أننا لسنا في وضع التسجيل
+                    runOnUiThread(() -> setResult("Verification: place finger..."));
+                    result.success("Verify: waiting for live capture");
+                    break;
+                }
+
                 default:
                     result.notImplemented();
                     break;
@@ -161,18 +172,11 @@ public class MainActivity extends FlutterActivity {
             setResult("Please start capture first");
             return;
         }
-        strUid = "";
-        if (editText != null) strUid = editText.getText().toString();
         if (strUid == null || strUid.isEmpty()) {
-            setResult("Please input your user id");
+            setResult("Please input name");
             bRegister = false;
             return;
         }
-        // if (dbManager.isUserExited(strUid)) {
-        //     setResult("The user[" + strUid + "] had registered!");
-        //     bRegister = false;
-        //     return;
-        // }
         bRegister = true;
         enroll_index = 0;
         setResult("Please press your finger 3 times.");
@@ -242,23 +246,37 @@ public class MainActivity extends FlutterActivity {
         }
 
         @Override
-        public void captureError(FingerprintException e) {}
+        public void captureError(FingerprintException e) { }
 
         @Override
         public void extractOK(byte[] fpTemplate) {
+            // إرسال القالب الخام إذا احتجته في Flutter (اختياري)
             if (methodChannel != null) {
                 String base64Template = Base64.encodeToString(fpTemplate, Base64.NO_WRAP);
                 runOnUiThread(() -> methodChannel.invokeMethod("onTemplateScanned", base64Template));
             }
+
             if (bRegister) {
                 doRegister(fpTemplate);
             } else {
-                doIdentify(fpTemplate);
+                // وضع التحقق المخصص: إذا لدينا قالب مخزن نتحقق ضده
+                if (targetTemplateForVerification != null) {
+                    int vr = ZKFingerService.verify(targetTemplateForVerification, fpTemplate);
+                    boolean matched = vr > 0;
+                    if (methodChannel != null) {
+                        runOnUiThread(() -> methodChannel.invokeMethod("onVerifyResult", matched));
+                    }
+                    // بعد محاولة واحدة، نظف الهدف (يمكنك الإبقاء عليه لو حاب تكرر)
+                    targetTemplateForVerification = null;
+                } else {
+                    // وضع التعرف العام (اختياري إن كنت تستعمل DB SDK)
+                    doIdentify(fpTemplate);
+                }
             }
         }
 
         @Override
-        public void extractError(int i) {}
+        public void extractError(int i) { }
     };
 
     private final FingerprintExceptionListener fingerprintExceptionListener = () -> {
@@ -290,13 +308,7 @@ public class MainActivity extends FlutterActivity {
     }
 
     private void doRegister(byte[] template) {
-        byte[] bufids = new byte[256];
-        int ret = ZKFingerService.identify(template, bufids, 70, 1);
-        if (ret > 0) {
-            bRegister = false; enroll_index = 0;
-            setResult("already enrolled");
-            return;
-        }
+        // منع تسجيل أصابع مختلفة أثناء الدمج
         if (enroll_index > 0 && ZKFingerService.verify(regtemparray[enroll_index - 1], template) <= 0) {
             bRegister = false; enroll_index = 0;
             setResult("press the same finger");
@@ -308,9 +320,13 @@ public class MainActivity extends FlutterActivity {
             bRegister = false; enroll_index = 0;
             byte[] regTemp = new byte[2048];
             int res = ZKFingerService.merge(regtemparray[0], regtemparray[1], regtemparray[2], regTemp);
-            if (res > 0 && ZKFingerService.save(regTemp, strUid) == 0) {
-                // dbManager.insertUser(strUid, Base64.encodeToString(regTemp, 0, res, Base64.NO_WRAP));
+            if (res > 0) {
                 setResult("enroll success");
+                // ← أهم إضافة: إرسال الـ merged template إلى Flutter ليخزنها في SQLite
+                if (methodChannel != null) {
+                    String base64Merged = Base64.encodeToString(regTemp, 0, res, Base64.NO_WRAP);
+                    runOnUiThread(() -> methodChannel.invokeMethod("onEnrollSuccess", base64Merged));
+                }
             } else {
                 setResult("enroll failed");
             }
@@ -320,6 +336,7 @@ public class MainActivity extends FlutterActivity {
     }
 
     private void doIdentify(byte[] template) {
+        // هذا التعرف يعتمد على DB الخاصة بـ SDK (غير مستخدم حالياً لأننا نخزن في Flutter)
         byte[] bufids = new byte[256];
         int ret = ZKFingerService.identify(template, bufids, 70, 1);
         if (ret > 0) {

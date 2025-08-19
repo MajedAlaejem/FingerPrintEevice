@@ -11,7 +11,7 @@ android {
     }
 
     namespace = "com.example.fingerprint_java_flutter"
-    compileSdk = 34
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -27,7 +27,7 @@ android {
         applicationId = "com.example.fingerprint_java_flutter"
         // Fixed minSdkVersion for Kotlin DSL
         minSdkVersion(flutter.minSdkVersion.toInt()) 
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
