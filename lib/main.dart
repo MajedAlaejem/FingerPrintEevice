@@ -85,6 +85,30 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
               ? '✅ البصمة صحيحة - ${_selectedName ?? ""}'
               : '❌ فشل التحقق';
           _showMessageDialog('نتيجة التحقق', text);
+          
+          // Automatically close verify panel after result
+          if (mounted) {
+            setState(() => _showVerify = false);
+            _recomputeScanner();
+          }
+          break;
+
+        case 'onVerifyTimeout':
+          // Handle verification timeout
+          final message = args as String? ?? 'انتهت مهلة التحقق (20 ثانية)';
+          _showMessageDialog('انتهت المهلة', message);
+          
+          // Automatically close verify panel after timeout
+          if (mounted) {
+            setState(() => _showVerify = false);
+            _recomputeScanner();
+          }
+          break;
+
+        case 'onTemplateScanned':
+          // Handle scanned template if needed for other purposes
+          final template = args as String;
+          print('Template scanned: ${template.length} characters');
           break;
 
         case 'onError':
@@ -121,32 +145,64 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
     _recomputeScanner();
   }
 
-  void _toggleVerifyPanel() {
+  void _toggleVerifyPanel() async {
     if (_selectedTemplate == null) {
       _showMessageDialog('تنبيه', 'اختر بصمة أولاً من القائمة');
       return;
     }
-    setState(() {
-      _showVerify = !_showVerify;
-      if (_showVerify) _firstVerifyScan = true;
-    });
-    _recomputeScanner();
 
-    if (_showVerify && _firstVerifyScan) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _beginVerify();
-        _firstVerifyScan = false;
+    if (_showVerify) {
+      // Closing verify panel - stop verification
+      await _fingerprintHelper.stopVerify();
+      setState(() => _showVerify = false);
+      _recomputeScanner();
+    } else {
+      // Opening verify panel - start verification
+      setState(() {
+        _showVerify = true;
+        _firstVerifyScan = true;
       });
+      
+      // Ensure scanner is active before starting verification
+      _recomputeScanner();
+      
+      // Wait a moment for scanner to start, then begin verification
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (_showVerify && _selectedTemplate != null) {
+        await _beginVerify();
+        setState(() => _firstVerifyScan = false);
+      }
     }
   }
 
   Future<void> _beginRegister() async {
+    if (!_scannerActive) {
+      _showMessageDialog('خطأ', 'يرجى تشغيل الماسح أولاً');
+      return;
+    }
     await _fingerprintHelper.registerFingerprint(_nameController.text.trim());
   }
 
   Future<void> _beginVerify() async {
-    if (_selectedTemplate == null) return;
-    await _fingerprintHelper.beginVerify(_selectedTemplate!);
+    if (_selectedTemplate == null) {
+      _showMessageDialog('خطأ', 'لا يوجد قالب بصمة محدد');
+      return;
+    }
+    
+    // Ensure scanner is running
+    if (!_scannerActive) {
+      await _fingerprintHelper.startFingerprint();
+      setState(() => _scannerActive = true);
+      // Wait for scanner to fully initialize
+      await Future.delayed(const Duration(milliseconds: 1000));
+    }
+    
+    try {
+      await _fingerprintHelper.beginVerify(_selectedTemplate!);
+    } catch (e) {
+      _showMessageDialog('خطأ', 'فشل في بدء التحقق: $e');
+    }
   }
 
   void _showMessageDialog(String title, String message) {
@@ -166,8 +222,6 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
       ),
     );
   }
-
-
 
   Widget _buildRegisterPanel() {
     return AnimatedSwitcher(
@@ -293,7 +347,9 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
                         const Spacer(),
                         IconButton(
                           tooltip: 'إغلاق',
-                          onPressed: () {
+                          onPressed: () async {
+                            // Stop verification on the native side
+                            await _fingerprintHelper.stopVerify();
                             setState(() => _showVerify = false);
                             _recomputeScanner();
                           },
@@ -304,24 +360,37 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
                     const SizedBox(height: 8),
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('ضع إصبعك على الماسح للتحقق'),
+                      child: Text('ضع إصبعك على الماسح للتحقق (مهلة: 20 ثانية)'),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        if (!_firstVerifyScan)
-                          ElevatedButton.icon(
-                            onPressed: _beginVerify,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('إعادة المسح'),
-                          ),
-                        if (!_firstVerifyScan) const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: _beginVerify,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('إعادة المسح'),
+                        ),
+                        const SizedBox(width: 12),
                         OutlinedButton.icon(
                           onPressed: () {
                             setState(() => _fpImage = null);
                           },
                           icon: const Icon(Icons.clear),
                           label: const Text('مسح المعاينة'),
+                        ),
+                        const Spacer(),
+                        // Cancel verification button
+                        TextButton.icon(
+                          onPressed: () async {
+                            await _fingerprintHelper.stopVerify();
+                            setState(() => _showVerify = false);
+                            _recomputeScanner();
+                          },
+                          icon: const Icon(Icons.cancel, color: Colors.orange),
+                          label: const Text(
+                            'إلغاء التحقق',
+                            style: TextStyle(color: Colors.orange),
+                          ),
                         ),
                       ],
                     ),
@@ -379,6 +448,7 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
                     _selectedName = null;
                     _selectedTemplate = null;
                     if (_showVerify) {
+                      await _fingerprintHelper.stopVerify();
                       setState(() => _showVerify = false);
                       _recomputeScanner();
                     }

@@ -43,9 +43,19 @@ class FingerprintChannelHelper {
     await _invoke('registerFingerprint', {'userId': userId});
   }
 
-  /// التحقق من البصمة
+  /// التحقق من البصمة مع مهلة زمنية 20 ثانية
   Future<void> beginVerify(String storedTemplate) async {
     await _invoke('beginVerify', {'storedTemplate': storedTemplate});
+  }
+
+  /// إيقاف عملية التحقق
+  Future<void> stopVerify() async {
+    await _invoke('stopVerify');
+  }
+
+  /// مسح قالب البصمة (للحصول على قالب واحد فقط)
+  Future<void> scanTemplate() async {
+    await _invoke('scanTemplate');
   }
 
   /// تحويل صورة بصمة Base64 إلى Uint8List
