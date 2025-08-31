@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:fingerprint_java_flutter/helper/alert.dart';
+import 'package:fingerprint_java_flutter/helper/sound_helper.dart';
 import 'package:flutter/material.dart';
 import 'db_helper.dart';
 import 'fingerprint_channel_helper.dart';
@@ -68,6 +69,7 @@ class _FingerprintHomePageState extends State<FingerprintHomePage> {
           if (name.isNotEmpty) {
             await DBHelper.insertFingerprint(name, base64Merged);
             if (mounted) {
+              SoundHelper().playSuccess();
               _showMessageDialog('تم الحفظ', '✅ تم حفظ $name بنجاح');
               setState(() {
                 _nameController.clear();
