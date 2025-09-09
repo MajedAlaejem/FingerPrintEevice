@@ -1,3 +1,4 @@
+
 // package com.example.zkfinger10demo.ZKUSBManager;
 package com.example.fingerprint_java_flutter.ZKUSBManager;
 
@@ -8,6 +9,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 import java.util.Random;
@@ -87,7 +89,14 @@ public class ZKUSBManager {
         filter.addAction(ACTION_USB_PERMISSION);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
-        mContext.registerReceiver(usbMgrReceiver, filter);
+        
+        // Fix for Android 8.0+ (API 26+) - specify RECEIVER_NOT_EXPORTED for security
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // API 33+
+            mContext.registerReceiver(usbMgrReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            mContext.registerReceiver(usbMgrReceiver, filter);
+        }
+        
         mbRegisterFilter = true;
         return true;
     }
@@ -135,11 +144,23 @@ public class ZKUSBManager {
         this.pid = pid;
         if (!usbManager.hasPermission(usbDevice)) {
             Intent intent = new Intent(this.ACTION_USB_PERMISSION);
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_MUTABLE);
+            PendingIntent pendingIntent;
+            
+            // Fix for Android 14+ (API 34+) - use FLAG_IMMUTABLE for implicit intents
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34+
+                pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, 
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // API 31+
+                pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, 
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            } else {
+                pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, 
+                    PendingIntent.FLAG_UPDATE_CURRENT);
+            }
+            
             usbManager.requestPermission(usbDevice, pendingIntent);
         } else {
             zknirusbManagerListener.onCheckPermission(0);
         }
     }
-
 }
