@@ -550,6 +550,8 @@
 // }
 
 
+import 'dart:developer';
+
 import 'package:fingerprint_java_flutter/seprated/RegisterNewFingerPrint.dart';
 import 'package:fingerprint_java_flutter/seprated/VerifyFingerprintTemplate.dart';
 import 'package:flutter/material.dart';
@@ -594,6 +596,20 @@ class _FingerprintHomeState extends State<FingerprintHome> {
     setState(() => fingerprints = data);
   }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+// شاشة بصمة جديدة يتم اخذ ثلاث بصمات ويرجع لك نص التمبلت 
   Future<void> _addFingerprint() async {
     final template = await Navigator.push(
       context,
@@ -603,16 +619,29 @@ class _FingerprintHomeState extends State<FingerprintHome> {
     );
 
     if (template != null && template is String) {
+      log(template);
+
       await DBHelper.insertFingerprint("User 1", template);
       _loadFingerprints();
     }
   }
 
+
+
+
+
+
+
+
+
+//////////////////////////
+// الانتقال لشاشة التحقق من البصمة وينتضر النتيجة اذا كانت مطابقة او لا ويرجع قيمة bool 
   Future<void> _verifyFingerprint(String template, String name) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => VerifyFingerprintTemplate(
+          //هنا نمرر التمبلت من قاعدة البيانات المحلية 
           fingerprintTemplate: template,
           userName: name,
         ),
@@ -620,7 +649,9 @@ class _FingerprintHomeState extends State<FingerprintHome> {
     );
 
     if (result != null && result is bool) {
+      log(result.toString());
       ScaffoldMessenger.of(context).showSnackBar(
+           
         SnackBar(
           content: Text(result
               ? "✅ تم التحقق بنجاح للمستخدم $name"
@@ -631,10 +662,21 @@ class _FingerprintHomeState extends State<FingerprintHome> {
     }
   }
 
+  //////////////////////////
+
   Future<void> _deleteFingerprint(int id) async {
     await DBHelper.deleteFingerprint(id);
     _loadFingerprints();
   }
+
+
+
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
